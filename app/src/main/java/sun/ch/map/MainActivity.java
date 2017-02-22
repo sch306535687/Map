@@ -244,12 +244,12 @@ public class MainActivity extends Activity {
                 if (!TextUtils.isEmpty(details)) {
                     //发起检索请求
                     if (mLocation != null) {
-                        /*PoiCitySearchOption poiCitySearchOption = new PoiCitySearchOption();
+                        /*PoiCitySearchOption poiCitySearchOption = new PoiCitySearchOption();//城市内搜索
                         poiCitySearchOption.city(mLocation.getCity());
                         poiCitySearchOption.keyword(details);
                         poiCitySearchOption.pageNum(0);
                         mPoiSearch.searchInCity(poiCitySearchOption);*/
-                        PoiNearbySearchOption poiNearbySearchOption = new PoiNearbySearchOption();
+                        PoiNearbySearchOption poiNearbySearchOption = new PoiNearbySearchOption();//坐标附近点搜索
                         LatLng latLng = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
                         poiNearbySearchOption.location(latLng);
                         poiNearbySearchOption.keyword(details);
