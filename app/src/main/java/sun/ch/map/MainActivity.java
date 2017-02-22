@@ -205,6 +205,7 @@ public class MainActivity extends Activity {
                     PoiOverlay poiOverlay = new PoiOverlay(mBaiduMap);
                     poiOverlay.setData(result);
                     poiOverlay.addToMap();*/
+
                 } else {
                     Toast.makeText(MainActivity.this, "没有数据", Toast.LENGTH_SHORT).show();
                 }
