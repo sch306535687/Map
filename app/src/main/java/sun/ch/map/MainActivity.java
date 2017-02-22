@@ -2,11 +2,20 @@ package sun.ch.map;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
@@ -27,6 +36,14 @@ import com.baidu.mapapi.map.Overlay;
 import com.baidu.mapapi.map.OverlayOptions;
 import com.baidu.mapapi.map.TextOptions;
 import com.baidu.mapapi.model.LatLng;
+import com.baidu.mapapi.search.core.PoiInfo;
+import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
+import com.baidu.mapapi.search.poi.PoiDetailResult;
+import com.baidu.mapapi.search.poi.PoiIndoorResult;
+import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
+import com.baidu.mapapi.search.poi.PoiResult;
+import com.baidu.mapapi.search.poi.PoiSearch;
+import com.baidu.mapapi.search.poi.PoiSortType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +61,12 @@ public class MainActivity extends Activity {
     private BDLocation mLocation;
     private TextView text;
     private Overlay textOverlay;
+    private PoiSearch mPoiSearch;
+
+    private ArrayList<String> addressList = new ArrayList<String>();
+    private ListView listview;
+    private MyAdapter myAdapter;
+    private EditText et_text;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,15 +81,11 @@ public class MainActivity extends Activity {
         mLocationClient = new LocationClient(getApplicationContext());
         //注册监听函数
         initLocation();//该类用来设置定位SDK的定位方式
-        mLocationClient.registerLocationListener( myListener );
+        mLocationClient.registerLocationListener(myListener);
 
         mLocationClient.start();//开启定位
 
-        if(mLocation!=null){
-            text.setText(mLocation.getAddrStr());
-        }
 
-        text = (TextView) findViewById(R.id.textview);
         //获取地图控件引用
         mMapView = (MapView) findViewById(R.id.bmapView);
         mBaiduMap = mMapView.getMap();
@@ -132,12 +151,189 @@ public class MainActivity extends Activity {
             }
         });
 
+        poisearch();//调用检索功能
+
     }
 
+    //检索功能
+    private void poisearch() {
+
+        listview = (ListView) findViewById(R.id.listview);
+        listview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                String address = addressList.get(i);
+                et_text.setText(address);
+                et_text.setSelection(address.length());//光标设置到最末尾
+                listview.setVisibility(View.GONE);
+            }
+        });
+
+        //创建POI检索实例
+        mPoiSearch = PoiSearch.newInstance();
+        //创建POI检索监听者
+
+        OnGetPoiSearchResultListener poiListener = new OnGetPoiSearchResultListener() {
+            public void onGetPoiResult(PoiResult result) {
+
+                addressList.clear();
+
+                //获取POI检索结果
+                List<PoiInfo> allPoi = result.getAllPoi();
+                if (allPoi != null) {
+                    for (PoiInfo poi : allPoi) {
+                        String address = poi.address;
+                        String phoneNum = poi.phoneNum;
+                        String name = poi.name;
+                       /* String s = new String();
+                        s = "address" + address + "phoneNum" + phoneNum + "name" + name;
+                        Log.d("MainActivity",s);*/
+                        addressList.add(address);
+                    }
+                    if(addressList!=null){
+                        if(myAdapter == null){
+                            listview.setVisibility(View.VISIBLE);
+                            myAdapter = new MyAdapter();
+                            listview.setAdapter(myAdapter);
+                        }else {
+                            myAdapter.notifyDataSetChanged();
+                        }
+
+                    }
+
+                    /*mBaiduMap.clear();
+                    PoiOverlay poiOverlay = new PoiOverlay(mBaiduMap);
+                    poiOverlay.setData(result);
+                    poiOverlay.addToMap();*/
+                } else {
+                    Toast.makeText(MainActivity.this, "没有数据", Toast.LENGTH_SHORT).show();
+                }
+
+            }
+
+            public void onGetPoiDetailResult(PoiDetailResult result) {
+                //获取Place详情页检索结果
+            }
+
+            @Override
+            public void onGetPoiIndoorResult(PoiIndoorResult poiIndoorResult) {
+
+            }
+        };
+        //设置POI检索监听者
+        mPoiSearch.setOnGetPoiSearchResultListener(poiListener);
+
+        et_text = (EditText) findViewById(R.id.et_text);
+        ImageButton searchBtn = (ImageButton) findViewById(R.id.searchBtn);
+        //当输入框内容改变时发起检索
+        et_text.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                String details = et_text.getText().toString().trim();
+                if (!TextUtils.isEmpty(details)) {
+                    //发起检索请求
+                    if (mLocation != null) {
+                        /*PoiCitySearchOption poiCitySearchOption = new PoiCitySearchOption();
+                        poiCitySearchOption.city(mLocation.getCity());
+                        poiCitySearchOption.keyword(details);
+                        poiCitySearchOption.pageNum(0);
+                        mPoiSearch.searchInCity(poiCitySearchOption);*/
+                        PoiNearbySearchOption poiNearbySearchOption = new PoiNearbySearchOption();
+                        LatLng latLng = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
+                        poiNearbySearchOption.location(latLng);
+                        poiNearbySearchOption.keyword(details);
+                        poiNearbySearchOption.pageCapacity(100).pageNum(0).radius(10 * 1000).sortType(PoiSortType.distance_from_near_to_far);
+                        mPoiSearch.searchNearby(poiNearbySearchOption);
+                    }
+                } else {
+                    Toast.makeText(MainActivity.this, "输入框不能为空", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        //当输入框内容发生改变时发起检索
+        searchBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+            }
+        });
+
+    }
+
+    //驾车线路规划
+    /*private void driver(String enName){
+        //创建驾车线路规划检索实例
+        RoutePlanSearch routePlanSearch = RoutePlanSearch.newInstance();
+        //创建驾车线路规划检索监听者
+        OnGetRoutePlanResultListener listener = new OnGetRoutePlanResultListener() {
+            public void onGetWalkingRouteResult(WalkingRouteResult result) {
+                //获取步行线路规划结果
+            }
+            public void onGetTransitRouteResult(TransitRouteResult result) {
+                //获取公交换乘路径规划结果
+            }
+
+            public void onGetDrivingRouteResult(DrivingRouteResult result) {
+                if(result == null || SearchResult.ERRORNO.RESULT_NOT_FOUND == result.error){
+                    Toast.makeText(getApplicationContext(), "未搜索到结果", Toast.LENGTH_LONG).show();
+                    return;
+                }
+               *//* //获取驾车线路规划结果
+                if (result.error == SearchResult.ERRORNO.NO_ERROR) {
+                    //在规划之前先移除原先的图层
+                    if (drivingRouteOverlay!=null) {
+                        drivingRouteOverlay.removeFromMap();
+                        drivingRouteOverlay = null;
+                    }
+                    drivingRouteOverlay = new DrivingRouteOverlay(mBaiduMap);
+                    DrivingRouteLine drivingRouteLine = result.getRouteLines().get(0);
+                    text.setText(drivingRouteLine.getDistance()+"米"+drivingRouteLine.getDuration()/60+"分钟");
+                    drivingRouteOverlay.setData(result.getRouteLines().get(0));
+                    drivingRouteOverlay.addToMap();
+                    drivingRouteOverlay.zoomToSpan();
+                }*//*
+
+            }
+
+            @Override
+            public void onGetMassTransitRouteResult(MassTransitRouteResult massTransitRouteResult) {
+
+            }
+
+            @Override
+            public void onGetIndoorRouteResult(IndoorRouteResult indoorRouteResult) {
+
+            }
+
+            @Override
+            public void onGetBikingRouteResult(BikingRouteResult bikingRouteResult) {
+
+            }
+        };
+        //设置驾车线路规划检索监听者
+        routePlanSearch.setOnGetRoutePlanResultListener(listener);
+        //准备检索起、终点信息
+        PlanNode stNode = PlanNode.withCityNameAndPlaceName(mLocation.getCity(),mLocation.getAddrStr());
+        PlanNode enNode = PlanNode.withCityNameAndPlaceName(mLocation.getCity(), enName);
+        //发起驾车线路规划检索
+        routePlanSearch.drivingSearch((new DrivingRoutePlanOption())
+                .from(stNode)
+                .to(enNode));
+    }*/
 
     //地图标注
     private void mark() {
-        if(mLocation!=null){
+        if (mLocation != null) {
             //定义Maker坐标点
             LatLng point = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
             //构建Marker图标
@@ -152,9 +348,10 @@ public class MainActivity extends Activity {
         }
 
     }
+
     //文字覆盖
     private void text() {
-        if(mLocation!=null){
+        if (mLocation != null) {
             //定义文字所显示的坐标点
             LatLng llText = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
             //构建文字Option对象，用于在地图上添加文字
@@ -172,8 +369,8 @@ public class MainActivity extends Activity {
     }
 
     //显示我的位置
-    private void setLocation(){
-        if(mLocation!=null){
+    private void setLocation() {
+        if (mLocation != null) {
 
             // 构造定位数据
             MyLocationData locData = new MyLocationData.Builder()
@@ -189,9 +386,10 @@ public class MainActivity extends Activity {
         }
 
     }
+
     //移动到我的位置
-    private void moveToMyLocation(){
-        if(mLocation!=null){
+    private void moveToMyLocation() {
+        if (mLocation != null) {
             // 让地图中心跑到我的真实位置处
             LatLng latLng = new LatLng(mLocation.getLatitude(), mLocation.getLongitude());
             MapStatusUpdate mapStatusUpdate = MapStatusUpdateFactory.newLatLngZoom(latLng, 18);//注意设置缩放级别
@@ -199,7 +397,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void initLocation(){
+    private void initLocation() {
         LocationClientOption option = new LocationClientOption();
         option.setLocationMode(LocationClientOption.LocationMode.Hight_Accuracy);
         //可选，默认高精度，设置定位模式，高精度，低功耗，仅设备
@@ -207,7 +405,7 @@ public class MainActivity extends Activity {
         option.setCoorType("bd09ll");
         //可选，默认gcj02，设置返回的定位结果坐标系
 
-        int span=5000;
+        int span = 5000;
         option.setScanSpan(span);
         //可选，默认0，即仅定位一次，设置发起定位请求的间隔需要大于等于1000ms才是有效的
 
@@ -239,16 +437,23 @@ public class MainActivity extends Activity {
     }
 
     private boolean isFirst = true;//定义一个开关，进入时移动到我的位置一次即可
+
     public class MyLocationListener implements BDLocationListener {
 
         @Override
         public void onReceiveLocation(BDLocation location) {
             mLocation = location;
 
-            if(isFirst){
+            if (isFirst) {
                 moveToMyLocation();//移动到我的位置
                 isFirst = false;
             }
+
+            text = (TextView) findViewById(R.id.textview);
+            if (mLocation != null) {
+                text.setText(mLocation.getAddrStr());
+            }
+
             //获取定位结果
             StringBuffer sb = new StringBuffer(256);
 
@@ -267,7 +472,7 @@ public class MainActivity extends Activity {
             sb.append("\nradius : ");
             sb.append(location.getRadius());    //获取定位精准度
 
-            if (location.getLocType() == BDLocation.TypeGpsLocation){
+            if (location.getLocType() == BDLocation.TypeGpsLocation) {
 
                 // GPS定位结果
                 sb.append("\nspeed : ");
@@ -288,7 +493,7 @@ public class MainActivity extends Activity {
                 sb.append("\ndescribe : ");
                 sb.append("gps定位成功");
 
-            } else if (location.getLocType() == BDLocation.TypeNetWorkLocation){
+            } else if (location.getLocType() == BDLocation.TypeNetWorkLocation) {
 
                 // 网络定位结果
                 sb.append("\naddr : ");
@@ -339,11 +544,44 @@ public class MainActivity extends Activity {
             System.out.println(sb.toString());
         }
 
-        @Override
-        public void onConnectHotSpotMessage(String s, int i) {
 
+    }
+
+    private class MyAdapter extends BaseAdapter{
+
+        @Override
+        public int getCount() {
+            return addressList.size();
         }
 
+        @Override
+        public Object getItem(int i) {
+            return addressList.get(i);
+        }
+
+        @Override
+        public long getItemId(int i) {
+            return i;
+        }
+
+        @Override
+        public View getView(int i, android.view.View view, ViewGroup viewGroup) {
+            ViewHolder holder;
+            if(view == null){
+                holder = new ViewHolder();
+                view = android.view.View.inflate(MainActivity.this,R.layout.list_item,null);
+                holder.address = (TextView) view.findViewById(R.id.address);
+                view.setTag(holder);
+            }else {
+                holder = (ViewHolder) view.getTag();
+            }
+            holder.address.setText(addressList.get(i));
+            return view;
+        }
+    }
+
+    private class ViewHolder{
+        public TextView address;
     }
 
     @Override
