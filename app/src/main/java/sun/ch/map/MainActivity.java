@@ -36,7 +36,10 @@ import com.baidu.mapapi.map.Overlay;
 import com.baidu.mapapi.map.OverlayOptions;
 import com.baidu.mapapi.map.TextOptions;
 import com.baidu.mapapi.model.LatLng;
+import com.baidu.mapapi.overlayutil.DrivingRouteOverlay;
+import com.baidu.mapapi.overlayutil.PoiOverlay;
 import com.baidu.mapapi.search.core.PoiInfo;
+import com.baidu.mapapi.search.core.SearchResult;
 import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
 import com.baidu.mapapi.search.poi.PoiDetailResult;
 import com.baidu.mapapi.search.poi.PoiIndoorResult;
@@ -44,6 +47,17 @@ import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
 import com.baidu.mapapi.search.poi.PoiResult;
 import com.baidu.mapapi.search.poi.PoiSearch;
 import com.baidu.mapapi.search.poi.PoiSortType;
+import com.baidu.mapapi.search.route.BikingRouteResult;
+import com.baidu.mapapi.search.route.DrivingRouteLine;
+import com.baidu.mapapi.search.route.DrivingRoutePlanOption;
+import com.baidu.mapapi.search.route.DrivingRouteResult;
+import com.baidu.mapapi.search.route.IndoorRouteResult;
+import com.baidu.mapapi.search.route.MassTransitRouteResult;
+import com.baidu.mapapi.search.route.OnGetRoutePlanResultListener;
+import com.baidu.mapapi.search.route.PlanNode;
+import com.baidu.mapapi.search.route.RoutePlanSearch;
+import com.baidu.mapapi.search.route.TransitRouteResult;
+import com.baidu.mapapi.search.route.WalkingRouteResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,6 +189,11 @@ public class MainActivity extends Activity {
 
         OnGetPoiSearchResultListener poiListener = new OnGetPoiSearchResultListener() {
             public void onGetPoiResult(PoiResult result) {
+                //添加查询结果地点标注图层
+                mBaiduMap.clear();
+                PoiOverlay poiOverlay = new PoiOverlay(mBaiduMap);
+                poiOverlay.setData(result);
+                poiOverlay.addToMap();
 
                 addressList.clear();
 
@@ -200,11 +219,6 @@ public class MainActivity extends Activity {
                         }
 
                     }
-
-                    /*mBaiduMap.clear();
-                    PoiOverlay poiOverlay = new PoiOverlay(mBaiduMap);
-                    poiOverlay.setData(result);
-                    poiOverlay.addToMap();*/
 
                 } else {
                     Toast.makeText(MainActivity.this, "没有数据", Toast.LENGTH_SHORT).show();
@@ -265,18 +279,22 @@ public class MainActivity extends Activity {
         searchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                String enName = et_text.getText().toString().trim();
+                driver(enName);//调用驾车线路规划
             }
         });
 
     }
 
     //驾车线路规划
-    /*private void driver(String enName){
+    private void driver(String enName){
         //创建驾车线路规划检索实例
         RoutePlanSearch routePlanSearch = RoutePlanSearch.newInstance();
         //创建驾车线路规划检索监听者
         OnGetRoutePlanResultListener listener = new OnGetRoutePlanResultListener() {
+
+            private DrivingRouteOverlay drivingRouteOverlay;
+
             public void onGetWalkingRouteResult(WalkingRouteResult result) {
                 //获取步行线路规划结果
             }
@@ -289,7 +307,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(getApplicationContext(), "未搜索到结果", Toast.LENGTH_LONG).show();
                     return;
                 }
-               *//* //获取驾车线路规划结果
+                //获取驾车线路规划结果
                 if (result.error == SearchResult.ERRORNO.NO_ERROR) {
                     //在规划之前先移除原先的图层
                     if (drivingRouteOverlay!=null) {
@@ -302,7 +320,7 @@ public class MainActivity extends Activity {
                     drivingRouteOverlay.setData(result.getRouteLines().get(0));
                     drivingRouteOverlay.addToMap();
                     drivingRouteOverlay.zoomToSpan();
-                }*//*
+                }
 
             }
 
@@ -330,7 +348,7 @@ public class MainActivity extends Activity {
         routePlanSearch.drivingSearch((new DrivingRoutePlanOption())
                 .from(stNode)
                 .to(enNode));
-    }*/
+    }
 
     //地图标注
     private void mark() {
